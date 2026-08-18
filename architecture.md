@@ -145,6 +145,16 @@ Exact commands are not finalized yet.
 
 The CLI is an interface to the underlying intelligence layer, not the intelligence layer itself.
 
+### V0 Project Structure
+
+V0 starts with a minimal Go project structure.
+
+New packages and directories should be introduced only when they are justified by real implementation needs.
+
+Do not create abstractions, packages, or directories only to follow a predefined "production" structure.
+
+The project structure should evolve from actual requirements while preserving simplicity and maintainability.
+
 ## 6. Future Local Service
 
 A future version may introduce a local service:

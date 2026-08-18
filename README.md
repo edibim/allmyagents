@@ -66,12 +66,14 @@ The system should reduce repetitive work without removing the developer from the
 
 Developers can configure how they want AI to teach, explain, and assist them.
 
-For example:
+Possible interaction modes may include:
 
-- Socratic
-- Balanced
-- Fast
-- Execute
+- learning-focused,
+- balanced,
+- fast,
+- execution-focused.
+
+The exact interaction model is still being validated.
 
 ### Persistent engineering knowledge
 

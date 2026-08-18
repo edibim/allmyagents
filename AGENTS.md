@@ -128,6 +128,22 @@ Do not hide changes behind unnecessary automation.
 
 If an operation has potentially destructive or irreversible consequences, ask for confirmation before performing it.
 
+### Execution
+
+When the task is clearly defined and remains within the requirements and architectural boundaries, the agent may implement it autonomously.
+
+The agent should not ask for approval for every implementation detail.
+
+The agent must stop and ask when:
+
+- requirements are ambiguous,
+- requirements conflict,
+- the change affects architectural boundaries,
+- the change introduces significant scope,
+- the operation is destructive or difficult to reverse.
+
+The developer remains responsible for reviewing and approving the resulting work.
+
 ---
 
 ## Completion Report
@@ -143,6 +159,25 @@ When a task is complete, provide or generate a concise report containing:
 - anything the developer should understand before review.
 
 The developer should be able to understand the completed work without reconstructing the entire coding session.
+
+### Implementation Quality
+
+Generated code should be production-quality and maintainable.
+
+Prioritize:
+
+- correctness,
+- readability,
+- simplicity,
+- maintainability,
+- appropriate error handling,
+- tests,
+- security,
+- performance where relevant.
+
+Do not intentionally simplify implementation to a beginner level.
+
+However, avoid unnecessary complexity, abstractions, or patterns that are not justified by the current requirements.
 
 ---
 

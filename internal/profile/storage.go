@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	appDirName      = ".allmyagents"
-	profileFileName = "developer-profile.json"
-	homeOverrideEnv = "ALLMYAGENTS_HOME"
+	appDirName          = ".allmyagents"
+	profileFileName     = "developer-profile.json"
+	homeOverrideEnv     = "ALLMYAGENTS_HOME"
+	sessionOverrideFile = "session-override.json"
 )
 
 func DefaultPath() (string, error) {
@@ -25,6 +26,12 @@ func DefaultPath() (string, error) {
 	return filepath.Join(home, appDirName, profileFileName), nil
 }
 
+// OverridePath returns the project-scoped location of the temporary session
+// override file: <projectDir>/.allmyagents/session-override.json.
+func OverridePath(projectDir string) string {
+	return filepath.Join(projectDir, appDirName, sessionOverrideFile)
+}
+
 func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
@@ -35,14 +42,14 @@ func Save(path string, developerProfile DeveloperProfile) error {
 		return fmt.Errorf("developer profile already exists at %s", path)
 	}
 
-	return write(path, developerProfile)
+	return write(path, developerProfile, "developer profile")
 }
 
 func Update(path string, developerProfile DeveloperProfile) error {
 	if !Exists(path) {
 		return fmt.Errorf("developer profile not found at %s; run allmyagents init first", path)
 	}
-	return write(path, developerProfile)
+	return write(path, developerProfile, "developer profile")
 }
 
 func Load(path string) (DeveloperProfile, error) {
@@ -58,19 +65,19 @@ func Load(path string) (DeveloperProfile, error) {
 	return developerProfile, nil
 }
 
-func write(path string, developerProfile DeveloperProfile) error {
+func write(path string, value any, kind string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("create developer profile directory: %w", err)
+		return fmt.Errorf("create %s directory: %w", kind, err)
 	}
 
-	data, err := json.MarshalIndent(developerProfile, "", "  ")
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode developer profile: %w", err)
+		return fmt.Errorf("encode %s: %w", kind, err)
 	}
 	data = append(data, '\n')
 
 	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write developer profile: %w", err)
+		return fmt.Errorf("write %s: %w", kind, err)
 	}
 	return nil
 }

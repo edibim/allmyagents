@@ -62,7 +62,7 @@ func editProfile(in io.Reader, out io.Writer, developerProfile *DeveloperProfile
 
 	for {
 		preferences := preferenceItems(*developerProfile)
-		selectedPreference, err := selectPreference(reader, out, preferences, style, message)
+		selectedPreference, err := selectPreference(reader, out, preferences, style, message, "Developer Profile")
 		if err != nil {
 			return false, err
 		}
@@ -76,7 +76,7 @@ func editProfile(in io.Reader, out io.Writer, developerProfile *DeveloperProfile
 			continue
 		}
 		current := developerProfile.Preferences[question.ID]
-		option, selected, err := selectPreferenceOption(reader, out, question, current, style)
+		option, selected, err := selectPreferenceOption(reader, out, question, current, style, "Developer Profile")
 		if err != nil {
 			return false, err
 		}
@@ -96,9 +96,9 @@ func editProfile(in io.Reader, out io.Writer, developerProfile *DeveloperProfile
 	}
 }
 
-func selectPreference(reader *bufio.Reader, out io.Writer, preferences []preferenceItem, style terminalStyle, message string) (preferenceItem, error) {
+func selectPreference(reader *bufio.Reader, out io.Writer, preferences []preferenceItem, style terminalStyle, message string, title string) (preferenceItem, error) {
 	selected := 0
-	renderPreferenceList(out, preferences, selected, style, message)
+	renderPreferenceList(out, preferences, selected, style, message, title)
 
 	for {
 		key, err := readKey(reader)
@@ -110,23 +110,23 @@ func selectPreference(reader *bufio.Reader, out io.Writer, preferences []prefere
 			if selected > 0 {
 				selected--
 			}
-			renderPreferenceList(out, preferences, selected, style, message)
+			renderPreferenceList(out, preferences, selected, style, message, title)
 		case keyDown:
 			if selected < len(preferences)-1 {
 				selected++
 			}
-			renderPreferenceList(out, preferences, selected, style, message)
+			renderPreferenceList(out, preferences, selected, style, message, title)
 		case keyEnter:
 			return preferences[selected], nil
 		}
 	}
 }
 
-func selectPreferenceOption(reader *bufio.Reader, out io.Writer, question Question, current Selection, style terminalStyle) (Option, bool, error) {
+func selectPreferenceOption(reader *bufio.Reader, out io.Writer, question Question, current Selection, style terminalStyle, title string) (Option, bool, error) {
 	options := append([]Option(nil), question.Options...)
 	options = append(options, Option{ID: "BACK", Value: "back", Label: "Back", Description: "Return to the preference list without changing this preference."})
 	selected := currentOptionIndex(question, current)
-	renderPreferenceEditor(out, question, current, options, selected, style)
+	renderPreferenceEditor(out, question, current, options, selected, style, title)
 
 	for {
 		key, err := readKey(reader)
@@ -138,12 +138,12 @@ func selectPreferenceOption(reader *bufio.Reader, out io.Writer, question Questi
 			if selected > 0 {
 				selected--
 			}
-			renderPreferenceEditor(out, question, current, options, selected, style)
+			renderPreferenceEditor(out, question, current, options, selected, style, title)
 		case keyDown:
 			if selected < len(options)-1 {
 				selected++
 			}
-			renderPreferenceEditor(out, question, current, options, selected, style)
+			renderPreferenceEditor(out, question, current, options, selected, style, title)
 		case keyEnter:
 			option := options[selected]
 			if option.ID == "BACK" {
@@ -154,10 +154,10 @@ func selectPreferenceOption(reader *bufio.Reader, out io.Writer, question Questi
 	}
 }
 
-func renderPreferenceList(out io.Writer, preferences []preferenceItem, selected int, style terminalStyle, message string) {
+func renderPreferenceList(out io.Writer, preferences []preferenceItem, selected int, style terminalStyle, message string, title string) {
 	resetInteractiveScreen(out, style)
 	fmt.Fprintln(out, style.blue("AllMyAgents setup"))
-	fmt.Fprintln(out, style.blue("Developer Profile"))
+	fmt.Fprintln(out, style.blue(title))
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, style.dim("Edit one preference at a time."))
 	if message != "" {
@@ -183,10 +183,10 @@ func renderPreferenceList(out io.Writer, preferences []preferenceItem, selected 
 	fmt.Fprintln(out, style.dim("Use Up/Down arrows to move. Press Enter to select."))
 }
 
-func renderPreferenceEditor(out io.Writer, question Question, current Selection, options []Option, selected int, style terminalStyle) {
+func renderPreferenceEditor(out io.Writer, question Question, current Selection, options []Option, selected int, style terminalStyle, title string) {
 	resetInteractiveScreen(out, style)
 	fmt.Fprintln(out, style.blue("AllMyAgents setup"))
-	fmt.Fprintln(out, style.blue("Developer Profile"))
+	fmt.Fprintln(out, style.blue(title))
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, style.dim("Editing "+preferenceMenuLabel(question.ID)))
 	fmt.Fprintln(out)

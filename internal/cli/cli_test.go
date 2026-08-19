@@ -48,12 +48,28 @@ func TestRunUnknownCommandPrintsUsage(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"profile"}, strings.NewReader(""), &out, &errOut)
+	err := Run([]string{"unknown"}, strings.NewReader(""), &out, &errOut)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(errOut.String(), "allmyagents init") {
+	if !strings.Contains(errOut.String(), "allmyagents profile") {
 		t.Fatalf("expected usage, got %q", errOut.String())
+	}
+}
+
+func TestRunProfileReturnsMissingProfileError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	err := Run([]string{"profile"}, strings.NewReader("\n"), &out, &errOut)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(errOut.String(), "read developer profile") {
+		t.Fatalf("expected missing profile error, got %q", errOut.String())
 	}
 }
 

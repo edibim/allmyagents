@@ -9,6 +9,7 @@ import (
 
 const usage = `Usage:
   allmyagents init
+  allmyagents profile
 `
 
 func Run(args []string, in io.Reader, out io.Writer, errOut io.Writer) error {
@@ -25,6 +26,17 @@ func Run(args []string, in io.Reader, out io.Writer, errOut io.Writer) error {
 			return err
 		}
 		if err := profile.RunOnboarding(in, out, path); err != nil {
+			fmt.Fprintf(errOut, "Error: %v\n", err)
+			return err
+		}
+		return nil
+	case "profile":
+		path, err := profile.DefaultPath()
+		if err != nil {
+			fmt.Fprintf(errOut, "Error: %v\n", err)
+			return err
+		}
+		if err := profile.RunEditor(in, out, path); err != nil {
 			fmt.Fprintf(errOut, "Error: %v\n", err)
 			return err
 		}

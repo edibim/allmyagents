@@ -1,153 +1,139 @@
 # AllMyAgents
 
-> Personal engineering intelligence for AI-assisted software development.
+A local-first personal engineering intelligence layer for AI-assisted software development.
 
-AllMyAgents is a local-first intelligence layer designed to help developers work with AI coding agents without repeatedly rebuilding their personal and project context.
+AllMyAgents is not a coding agent. It is the layer that sits around one — preserving who you are, how you work, and what your project already knows, so you stop re-explaining it every session.
 
-The goal is simple:
+## What is AllMyAgents?
 
-> Use different AI agents without losing who you are, how you work, what you are building, or what has already been decided.
+AI coding agents are good at writing code. They are bad at remembering you.
 
-## Why AllMyAgents?
+Every new session, developers re-explain their experience level, how they like to learn, how much autonomy to give the AI, what the project is, and what has already been decided. AllMyAgents exists to hold that context locally and make it available to the AI-assisted workflow automatically — without becoming another coding agent itself.
 
-AI coding tools can write code quickly, but developers still spend time:
+## The Problem
 
-- repeating personal preferences and learning instructions,
-- reconstructing project context,
-- moving context between AI tools,
-- reviewing whether generated code follows project rules,
-- understanding what the AI actually changed,
-- documenting decisions and updating project state.
+AI-assisted development creates friction that has nothing to do with the AI's coding ability:
 
-AllMyAgents aims to remove that unnecessary friction while keeping the developer in control.
+- Personal preferences and learning style get re-typed every session.
+- Project context has to be rediscovered or manually pasted in.
+- Decisions and the reasoning behind them get lost over time.
+- Switching between AI tools means moving context by hand.
+- AI can produce working code without the developer actually understanding it.
+- Developers still have to manually check whether generated code follows project rules and architecture.
 
-## Current Status
+This costs time, tokens, and developer control.
 
-🚧 **Early-stage / V0 development**
+## The Idea
 
-This repository is currently being built and validated through real development work.
+If useful developer and project knowledge is maintained locally and supplied automatically to the right workflow, developers can use AI agents without reconstructing their context every time — while staying in control of the outcome.
 
-The first validation target is a real Milestone 3 coding task.
+AllMyAgents is built around a specific tradeoff:
 
-The product direction may change based on evidence from real usage.
+> Relevant context, not maximum context.
 
-## V0 Goal
+The system should figure out what's actually relevant to the current task rather than dumping everything it knows at the AI. And whatever the AI does with that context, the developer stays the one who approves, understands, and owns the result.
 
-The first MVP aims to demonstrate the complete engineering workflow:
+## How It's Meant to Work
 
-Onboarding
-→ Developer Profile
-→ Project Context
-→ Task Context
-→ AI Execution
-→ Tests
-→ Verification
-→ Learning / Handoff Report
-→ Human Approval
-→ Project State Update
+V0 is designed around one core engineering loop:
 
-The first execution integration will use Codex.
+```
+Understand → Plan → Implement → Test → Verify → Explain → Human Approval → Update Project State
+```
 
-AllMyAgents is intended to remain agent-agnostic, so other AI coding agents can be supported later.
+The AI executor implements within boundaries set by the developer's profile, the project's architecture, and its own requirements — then the work is tested, verified against those requirements, explained in human-readable terms, and only persisted once approved.
 
-## Core Principles
+**Codex** is the first execution integration. The executor is intentionally kept replaceable — AllMyAgents provides the context and workflow intelligence around it, not the execution engine itself.
 
-### Local-first
+## Local-First by Design
 
-Personal developer intelligence is stored locally by default.
+Developer intelligence and project intelligence are deliberately kept separate:
 
-Future versions may provide optional encrypted cloud synchronization.
+```
+~/.allmyagents/                    <project>/.allmyagents/
+  developer profile                  project-specific state
+  reusable across every project      belongs to this project only
+```
 
-### Developer-controlled
+Everything lives on the developer's machine by default and is not committed to public repositories. A future version may add optional encrypted cloud sync, but that is explicitly out of scope for V0.
 
-The system should reduce repetitive work without removing the developer from the engineering process.
+## Getting Started
 
-### Learning-aware
+### Requirements
 
-Developers can configure how they want AI to teach, explain, and assist them.
+- Go 1.25 or newer
 
-Possible interaction modes may include:
+### Build
 
-- learning-focused,
-- balanced,
-- fast,
-- execution-focused.
+```bash
+git clone https://github.com/n7ptd2xr8c-cell/allmyagents.git
+cd allmyagents
+go build -o allmyagents ./cmd/allmyagents
+```
 
-The exact interaction model is still being validated.
+### Usage
 
-### Persistent engineering knowledge
+```bash
+./allmyagents init                            # Starts the interactive Developer Profile onboarding
+./allmyagents profile                         # review and edit individual profile preferences
+./allmyagents override                        # Select a preference and temporarily change it for the current project.
+./allmyagents override show                   # see effective preferences (profile + active overrides)
+./allmyagents override clear [preference-id]  # clear one override, or all if no id is given
+```
 
-AllMyAgents should preserve useful structured knowledge rather than simply storing entire conversations.
+Your Developer Profile lives at `~/.allmyagents/developer-profile.json` and follows you across every project. Session overrides live inside the project you run the command from and are never written back into your profile.
 
-This may include:
+## Current Status: V0
 
-- developer preferences,
-- learning state,
-- project requirements,
-- architecture,
-- decisions,
-- current project state,
-- useful lessons.
+AllMyAgents is early. V0 is not a finished product — it's a working slice built to validate a hypothesis: that locally maintained context can meaningfully reduce AI-assisted development friction. It is being validated through real, dogfooded engineering work before going any further.
 
-## Architecture Direction
+### Implemented
 
-The intended high-level architecture is:
+The developer profile foundation is built and working today:
 
-Developer
-    ↓
-AllMyAgents
-    ├── Developer Profile
-    ├── Project Intelligence
-    ├── Task Context
-    ├── Workflow / Autonomy
-    ├── Verification
-    └── State Management
-    ↓
-AI Executor
-    ↓
-Software Project
+- **First-run onboarding** — eight structured questions (experience, learning style, autonomy, explanation depth, work priority, review style, Git autonomy, uncertainty handling), answered by selecting an option, never by writing a prompt.
+- **Structured Developer Profile** — preferences are stored as data, not a giant static prompt, and persisted locally.
+- **Interactive profile editing** — change one preference at a time without redoing onboarding.
+- **Temporary session/task overrides** — override individual preferences for the current project without touching the persistent profile. Overrides are sparse (only what you explicitly change), scoped to the project, and stay in effect until you explicitly clear them.
 
-The intelligence layer belongs to AllMyAgents.
+### V0 Target
 
-The AI executor can change.
+Still to be built, per the product requirements:
 
-## Repository
+- Project context and detection
+- Task context assembly
+- Context builder (deciding what's actually relevant to send)
+- Codex is the intended first execution integration for V0.
+- Automated testing and technical verification
+- Human-readable handoff / learning report
+- Human approval gate
+- Confirmed project-state updates
 
-The project is currently structured as a Go application.
+## What V0 Is Not
 
-Important documents:
+Explicitly out of scope for this version:
 
-- `PRD.md` — product requirements and V0 scope
-- `architecture.md` — architecture decisions and system design
-- `AGENTS.md` — engineering rules for AI-assisted development
+- Cloud synchronization or a SaaS backend
+- Subscriptions or payments
+- Multi-agent orchestration
+- Fully autonomous development
+- Automatic Git push by default
+- A large graphical UI
 
-Additional project documentation will be added as the architecture evolves.
+These may be reconsidered later, but only once V0 proves the core idea.
 
-## Development Workflow
+## Product Principle
 
-Development follows:
+> **Remove unnecessary friction from the developer's interaction with AI without removing the developer from the engineering process.**
 
-feature branch
-→ review
-→ dev
-→ validation
-→ main
-→ release
+The goal isn't to replace the developer. It's to make the developer more capable, informed, and efficient while staying the owner of every engineering decision.
 
-The `main` branch represents stable software.
+## Validation
 
-The `dev` branch is used for integration.
+The first user is the project's own creator. AllMyAgents is being used on real development work, and the plan is straightforward: build, use it for real, measure whether it actually reduces friction, and adjust — including reconsidering the approach entirely if the evidence doesn't support it.
 
-Feature work is developed in branches such as:
+## Documentation
 
-- `feat/developer-profile`
-- `feat/project-context`
-- `feat/codex-integration`
-
-## Project Philosophy
-
-AllMyAgents is being built with a simple principle:
-
-> **AI should remove engineering friction, not remove the engineer.**
-
-The product is intentionally being developed through real-world dogfooding before broader validation.
+- [`docs/PRD.md`](docs/PRD.md) — product requirements and V0 scope
+- [`docs/architecture.md`](docs/architecture.md) — architecture decisions and system design
+- [`docs/AGENTS.md`](docs/AGENTS.md) — engineering rules for AI-assisted development in this repository

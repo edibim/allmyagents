@@ -29,3 +29,12 @@ func NewDeveloperProfile(preferences Preferences, now time.Time) DeveloperProfil
 		Preferences:   preferences,
 	}
 }
+
+// PreferenceLabel returns the human-readable label for a question ID (for
+// example "learning_method" -> "Learning method"), the same labels used
+// throughout the CLI. Callers outside this package that need to render
+// preferences, such as the context renderer, use this instead of
+// duplicating the label mapping.
+func PreferenceLabel(questionID string) string {
+	return preferenceMenuLabel(questionID)
+}

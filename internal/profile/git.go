@@ -9,12 +9,11 @@ import (
 
 const gitExcludeEntry = appDirName + "/"
 
-// EnsureProjectStateExcluded makes sure the project-local .allmyagents/
-// directory is excluded from Git without touching any tracked file. It
-// walks up from projectDir looking for a .git directory and, if one is
-// found, appends an entry to <repo-root>/.git/info/exclude — Git's
-// local-only, never-committed ignore mechanism — unless that entry is
-// already present.
+// EnsureGitExcluded makes sure the given gitignore-style pattern is present
+// in <repo-root>/.git/info/exclude — Git's local-only, never-committed
+// ignore mechanism — for the Git repository containing projectDir, without
+// touching any tracked file. It walks up from projectDir looking for a
+// .git directory and appends the pattern unless it is already present.
 //
 // If projectDir is not inside a Git repository, this is a safe no-op:
 // AllMyAgents only manages Git-local exclusions where a Git repository
@@ -23,7 +22,11 @@ const gitExcludeEntry = appDirName + "/"
 // A .git that is a file rather than a directory (Git worktrees and
 // submodules use this) is treated the same as "no repository found" for
 // V0; supporting that layout is left for a future version.
-func EnsureProjectStateExcluded(projectDir string) error {
+//
+// This is the single entrypoint every AllMyAgents-created, project-local
+// path uses to stay out of the user's Git status; see
+// EnsureProjectStateExcluded for the .allmyagents/ case.
+func EnsureGitExcluded(projectDir string, pattern string) error {
 	gitDir, err := findGitDir(projectDir)
 	if err != nil {
 		return err
@@ -33,7 +36,13 @@ func EnsureProjectStateExcluded(projectDir string) error {
 	}
 
 	excludePath := filepath.Join(gitDir, "info", "exclude")
-	return ensureExcludeEntry(excludePath, gitExcludeEntry)
+	return ensureExcludeEntry(excludePath, pattern)
+}
+
+// EnsureProjectStateExcluded makes sure the project-local .allmyagents/
+// directory is excluded from Git. See EnsureGitExcluded for the mechanism.
+func EnsureProjectStateExcluded(projectDir string) error {
+	return EnsureGitExcluded(projectDir, gitExcludeEntry)
 }
 
 func findGitDir(startDir string) (string, error) {

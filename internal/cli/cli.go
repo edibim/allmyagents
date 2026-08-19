@@ -74,6 +74,10 @@ func runOverride(rest []string, in io.Reader, out io.Writer, errOut io.Writer) e
 	}
 	overridePath := profile.OverridePath(projectDir)
 
+	if err := profile.EnsureProjectStateExcluded(projectDir); err != nil {
+		fmt.Fprintf(errOut, "Warning: could not add .allmyagents/ to git exclude: %v\n", err)
+	}
+
 	if len(rest) == 0 {
 		if err := profile.RunOverrideEditor(in, out, profilePath, overridePath); err != nil {
 			fmt.Fprintf(errOut, "Error: %v\n", err)

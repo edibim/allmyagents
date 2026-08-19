@@ -219,3 +219,104 @@ func TestRunOverrideClearRemovesOnePreferenceThenAll(t *testing.T) {
 		t.Fatalf("developer profile must remain untouched by override clearing, got %#v", updatedProfile.Preferences["learning_method"])
 	}
 }
+
+func TestRunOverrideAddsGitExcludeEntryWithoutTouchingGitignore(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+	projectDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(projectDir, ".git"), 0o755); err != nil {
+		t.Fatalf("Mkdir returned error: %v", err)
+	}
+	gitignorePath := filepath.Join(projectDir, ".gitignore")
+	if err := os.WriteFile(gitignorePath, []byte("node_modules/\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	t.Chdir(projectDir)
+
+	profilePath := filepath.Join(home, "developer-profile.json")
+	if err := profile.Save(profilePath, testDeveloperProfile(t)); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	input := strings.NewReader(onboardingKeys(1, 2, 8))
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	if err := Run([]string{"override"}, input, &out, &errOut); err != nil {
+		t.Fatalf("Run returned error: %v\nstderr: %s", err, errOut.String())
+	}
+	if errOut.Len() != 0 {
+		t.Fatalf("expected no warnings, got %q", errOut.String())
+	}
+
+	excludeData, err := os.ReadFile(filepath.Join(projectDir, ".git", "info", "exclude"))
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if string(excludeData) != ".allmyagents/\n" {
+		t.Fatalf("git exclude content = %q, want %q", string(excludeData), ".allmyagents/\n")
+	}
+
+	gitignoreData, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if string(gitignoreData) != "node_modules/\n" {
+		t.Fatalf(".gitignore was modified: got %q, want untouched %q", string(gitignoreData), "node_modules/\n")
+	}
+}
+
+func TestRunOverrideShowIsIdempotentForGitExclude(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+	projectDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(projectDir, ".git"), 0o755); err != nil {
+		t.Fatalf("Mkdir returned error: %v", err)
+	}
+	t.Chdir(projectDir)
+
+	profilePath := filepath.Join(home, "developer-profile.json")
+	if err := profile.Save(profilePath, testDeveloperProfile(t)); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	for i := range 2 {
+		var out bytes.Buffer
+		var errOut bytes.Buffer
+		if err := Run([]string{"override", "show"}, strings.NewReader(""), &out, &errOut); err != nil {
+			t.Fatalf("Run %d returned error: %v\nstderr: %s", i, err, errOut.String())
+		}
+	}
+
+	excludeData, err := os.ReadFile(filepath.Join(projectDir, ".git", "info", "exclude"))
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if string(excludeData) != ".allmyagents/\n" {
+		t.Fatalf("git exclude content = %q, want exactly one entry", string(excludeData))
+	}
+}
+
+func TestRunOverrideOutsideGitRepoDoesNotFail(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+	projectDir := t.TempDir()
+	t.Chdir(projectDir)
+
+	profilePath := filepath.Join(home, "developer-profile.json")
+	if err := profile.Save(profilePath, testDeveloperProfile(t)); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if err := Run([]string{"override", "show"}, strings.NewReader(""), &out, &errOut); err != nil {
+		t.Fatalf("Run returned error: %v\nstderr: %s", err, errOut.String())
+	}
+	if errOut.Len() != 0 {
+		t.Fatalf("expected no warnings outside a git repository, got %q", errOut.String())
+	}
+	if fileExists(filepath.Join(projectDir, ".git")) {
+		t.Fatal("must not create a .git directory outside a repository")
+	}
+}

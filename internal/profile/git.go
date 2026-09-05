@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -43,6 +44,37 @@ func EnsureGitExcluded(projectDir string, pattern string) error {
 // directory is excluded from Git. See EnsureGitExcluded for the mechanism.
 func EnsureProjectStateExcluded(projectDir string) error {
 	return EnsureGitExcluded(projectDir, gitExcludeEntry)
+}
+
+// IsTracked reports whether relPath (interpreted relative to projectDir) is
+// already tracked by the Git repository containing projectDir. Agent
+// adapters use this to make sure AllMyAgents' personal, local-only context
+// files never overwrite or get mixed into a project's real, shared
+// instructions.
+//
+// If Git cannot positively confirm the path is tracked — no repository,
+// Git not installed, or any other error — this reports false, the same
+// safe default EnsureGitExcluded uses when no repository is found.
+// AllMyAgents only refuses to manage a path when it can positively confirm
+// that path is already tracked by the team's repository.
+func IsTracked(projectDir, relPath string) bool {
+	cmd := exec.Command("git", "-C", projectDir, "ls-files", "--error-unmatch", "--", relPath)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
+}
+
+// HasGitRepository reports whether projectDir is inside a Git repository
+// AllMyAgents can actually manage exclusions for — i.e. a real .git
+// directory is found at or above projectDir. Like EnsureGitExcluded, a
+// worktree or submodule's .git file is treated the same as "no repository"
+// here, since EnsureGitExcluded can't safely manage an exclusion there
+// either. Callers use this to give an honest answer about whether a
+// generated file actually ended up protected from being committed, rather
+// than assuming EnsureGitExcluded always succeeds.
+func HasGitRepository(projectDir string) bool {
+	gitDir, err := findGitDir(projectDir)
+	return err == nil && gitDir != ""
 }
 
 func findGitDir(startDir string) (string, error) {

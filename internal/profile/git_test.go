@@ -2,6 +2,7 @@ package profile
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -132,5 +133,62 @@ func TestEnsureProjectStateExcludedOutsideGitRepoIsNoOp(t *testing.T) {
 	}
 	if Exists(filepath.Join(dir, ".git")) {
 		t.Fatal("must not create a .git directory outside a repository")
+	}
+}
+
+func TestIsTrackedReportsTrueForACommittedFile(t *testing.T) {
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init", "-q")
+	runGit(t, repoRoot, "config", "user.email", "test@example.com")
+	runGit(t, repoRoot, "config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("team instructions\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	runGit(t, repoRoot, "add", "AGENTS.md")
+	runGit(t, repoRoot, "commit", "-q", "-m", "add AGENTS.md")
+
+	if !IsTracked(repoRoot, "AGENTS.md") {
+		t.Fatal("expected AGENTS.md to be reported as tracked")
+	}
+}
+
+func TestIsTrackedReportsFalseForAnUntrackedFile(t *testing.T) {
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init", "-q")
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("scratch\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	if IsTracked(repoRoot, "AGENTS.md") {
+		t.Fatal("expected an untracked, uncommitted file to be reported as not tracked")
+	}
+}
+
+func TestIsTrackedReportsFalseForAMissingFile(t *testing.T) {
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init", "-q")
+
+	if IsTracked(repoRoot, "does-not-exist.md") {
+		t.Fatal("expected a nonexistent file to be reported as not tracked")
+	}
+}
+
+func TestIsTrackedReportsFalseOutsideAGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("scratch\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	if IsTracked(dir, "AGENTS.md") {
+		t.Fatal("expected IsTracked to report false outside a git repository")
+	}
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, out)
 	}
 }

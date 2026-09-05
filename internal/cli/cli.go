@@ -2,10 +2,13 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
+	"github.com/n7ptd2xr8c-cell/allmyagents/internal/adapters"
 	allmyagentscontext "github.com/n7ptd2xr8c-cell/allmyagents/internal/context"
 	"github.com/n7ptd2xr8c-cell/allmyagents/internal/profile"
 )
@@ -196,14 +199,15 @@ func writeSessionStartHookOutput(out io.Writer, additionalContext string) error 
 	return nil
 }
 
-const claudeSettingsGitPattern = "**/" + claudeSettingsDirName + "/" + claudeSettingsFileName
-
-// runInitProject activates AllMyAgents' Claude Code integration for the
-// current project: it wires up a SessionStart hook in
-// .claude/settings.local.json so Claude Code receives the Developer
-// Profile automatically, and keeps both .allmyagents/ and that settings
-// file out of the project's Git status. It never touches a tracked file,
-// and is safe to run repeatedly or outside a Git repository.
+// runInitProject activates AllMyAgents' agent integrations for the current
+// project: Claude Code, Codex, GitHub Copilot (VS Code), Gemini CLI, and
+// Google Antigravity, each via its own adapter (see internal/adapters).
+// Every adapter runs independently — one failing or being skipped never
+// stops the others — and none of them ever modify a file already tracked
+// by Git, so a project's real, shared instructions are never overwritten
+// or mixed with AllMyAgents' personal, local-only context. It keeps
+// .allmyagents/ out of the project's Git status and is safe to run
+// repeatedly or outside a Git repository.
 func runInitProject(rest []string, out io.Writer, errOut io.Writer) error {
 	if len(rest) != 0 {
 		fmt.Fprint(errOut, usage)
@@ -220,21 +224,40 @@ func runInitProject(rest []string, out io.Writer, errOut io.Writer) error {
 		fmt.Fprintf(errOut, "Warning: could not add .allmyagents/ to git exclude: %v\n", err)
 	}
 
-	changed, settingsPath, err := ensureClaudeSessionStartHook(projectDir)
-	if err != nil {
+	effectiveContext, buildErr := allmyagentscontext.Build(projectDir)
+	rendered := ""
+	switch {
+	case buildErr == nil:
+		rendered = allmyagentscontext.Render(effectiveContext)
+	case errors.Is(buildErr, fs.ErrNotExist):
+		// No Developer Profile yet: a legitimate, non-fatal state. Adapters
+		// that need static content report their own "skipped" reason for
+		// this; leaving rendered empty is how they detect it.
+	default:
+		// A real failure — malformed Developer Profile or Session Override
+		// JSON, an unresolvable home directory, a permissions error, etc.
+		// This must not be silently treated as "no profile yet": report it
+		// and stop before running any adapter, rather than letting five
+		// adapters report a misleading "no Developer Profile" skip.
+		err := fmt.Errorf("could not build Effective Developer Context: %w", buildErr)
 		fmt.Fprintf(errOut, "Error: %v\n", err)
 		return err
 	}
 
-	if err := profile.EnsureGitExcluded(projectDir, claudeSettingsGitPattern); err != nil {
-		fmt.Fprintf(errOut, "Warning: could not add %s to git exclude: %v\n", claudeSettingsFileName, err)
+	results := adapters.RunAll(projectDir, rendered)
+
+	failed := false
+	for _, result := range results {
+		fmt.Fprintf(out, "%s: %s — %s\n", result.Agent, result.Status, result.Detail)
+		if result.Status == adapters.StatusError {
+			failed = true
+		}
 	}
 
-	if changed {
-		fmt.Fprintf(out, "Added AllMyAgents SessionStart hook to %s\n", settingsPath)
-	} else {
-		fmt.Fprintf(out, "AllMyAgents SessionStart hook already present at %s\n", settingsPath)
+	if failed {
+		err := fmt.Errorf("one or more agent integrations failed; see the errors above")
+		fmt.Fprintf(errOut, "Error: %v\n", err)
+		return err
 	}
-	fmt.Fprintln(out, "Claude Code will now receive your Developer Profile automatically when you start a session in this project.")
 	return nil
 }

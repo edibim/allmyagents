@@ -1,6 +1,9 @@
 package context
 
 import (
+	"errors"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -72,8 +75,67 @@ func TestBuildMissingProfileReturnsError(t *testing.T) {
 	t.Setenv("ALLMYAGENTS_HOME", home)
 	projectDir := t.TempDir()
 
-	if _, err := Build(projectDir); err == nil {
+	_, err := Build(projectDir)
+	if err == nil {
 		t.Fatal("expected error when the developer profile does not exist")
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected a wrapped fs.ErrNotExist for a missing profile, got %v", err)
+	}
+}
+
+// TestBuildMalformedProfileReturnsNonNotExistError proves a corrupted
+// Developer Profile is distinguishable from a merely-missing one: callers
+// (like runInitProject) must be able to tell "no profile yet" (safe to
+// degrade gracefully) apart from "a profile exists but is broken" (a real
+// failure that must not be silently swallowed).
+func TestBuildMalformedProfileReturnsNonNotExistError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+	projectDir := t.TempDir()
+
+	profilePath := filepath.Join(home, "developer-profile.json")
+	if err := os.WriteFile(profilePath, []byte("{not valid json"), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	_, err := Build(projectDir)
+	if err == nil {
+		t.Fatal("expected error for a malformed developer profile")
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("a malformed profile must not look like a missing one, got %v", err)
+	}
+}
+
+// TestBuildMalformedSessionOverrideReturnsError proves that a corrupted
+// project-local session-override.json is reported as a real error even
+// though the Developer Profile itself is perfectly valid — this must not
+// be confused with "no Developer Profile yet" either.
+func TestBuildMalformedSessionOverrideReturnsError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("ALLMYAGENTS_HOME", home)
+	projectDir := t.TempDir()
+
+	profilePath := filepath.Join(home, "developer-profile.json")
+	if err := profile.Save(profilePath, testProfile(t)); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	overridePath := profile.OverridePath(projectDir)
+	if err := os.MkdirAll(filepath.Dir(overridePath), 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	if err := os.WriteFile(overridePath, []byte("{not valid json"), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	_, err := Build(projectDir)
+	if err == nil {
+		t.Fatal("expected error for a malformed session override")
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("a malformed session override must not look like a missing profile, got %v", err)
 	}
 }
 

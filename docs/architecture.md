@@ -27,11 +27,17 @@ Developer Profile + Project State + Task Context + Workflow + Verification
 ↓  
 Context Builder  
 ↓  
+Agent Adapters (one per supported AI executor)  
+↓  
 AI Executor  
 ↓  
 Repository
 
-Codex is the first AI executor used for V0.
+V0 delivers the Context Builder's output to five AI executors — Claude Code,
+Codex CLI, GitHub Copilot (VS Code), Gemini CLI, and Google Antigravity —
+each through its own adapter (§7). This is context delivery, not the full
+execution/verification loop described in §8: no adapter today runs an
+executor, tests its output, or updates project state on its behalf.
 
 ## 3. Core Components
 
@@ -90,9 +96,10 @@ The objective is:
 
 The executor performs the actual AI-assisted coding work.
 
-V0 uses Codex.
-
-The architecture must keep the executor replaceable so that additional AI agents can be supported later.
+V0 delivers context to five executors — Claude Code, Codex CLI, GitHub
+Copilot (VS Code), Gemini CLI, and Google Antigravity — through the adapter
+architecture in §7. Each is independently replaceable: removing or
+disabling any one adapter does not affect the others or the core tool.
 
 AllMyAgents should not depend on the internal behavior of one specific model.
 
@@ -133,15 +140,13 @@ Neither should be committed to a public repository by default.
 
 V0 is CLI-first.
 
-The initial interaction model may eventually expose commands such as:
+The implemented V0 commands are:
 
-- allmyagents init
-- allmyagents profile
-- allmyagents project
-- allmyagents run
-- allmyagents verify
-
-Exact commands are not finalized yet.
+- `allmyagents init` — first-run Developer Profile onboarding
+- `allmyagents profile` — review/edit individual profile preferences
+- `allmyagents override` (and `show` / `clear`) — temporary project-scoped preference overrides
+- `allmyagents context` — print the deterministic Effective Developer Context
+- `allmyagents init-project` — configure every supported agent adapter for the current project
 
 The CLI is an interface to the underlying intelligence layer, not the intelligence layer itself.
 
@@ -167,18 +172,25 @@ Core Intelligence
 
 The service should only be introduced when the V0 workflow demonstrates a real need for persistent cross-tool communication.
 
-## 7. Future Multi-Agent Support
+## 7. V0 Agent Adapter Architecture
 
-The architecture should eventually allow:
+V0 implements exactly this, in `internal/adapters`:
 
-AllMyAgents  
-├── Codex  
-├── Claude Code  
-└── Other Agents
+AllMyAgents Core (`internal/context`: Developer Profile + Session Override → Effective Developer Context)  
+↓  
+`internal/adapters` (one adapter per agent, common `Configure(projectDir, rendered) Result` interface)  
+├── Claude Code — SessionStart hook (`.claude/settings.local.json`), dynamic, no static file  
+├── Codex — `AGENTS.md`  
+├── GitHub Copilot (VS Code) — `.github/copilot-instructions.md`  
+├── Gemini CLI — `GEMINI.local.md` + `.gemini/settings.json` (`context.fileName`)  
+└── Google Antigravity — `.agents/rules/allmyagents-context.md` (experimental — see `docs/integrations.md`)
 
-However, multi-agent orchestration is explicitly outside V0.
+Two invariants hold for every adapter:
 
-The first objective is to prove that the intelligence layer provides value independently of the executor.
+1. **Isolation.** `init-project` runs every adapter independently (a panic is recovered into an error result); one adapter failing or being skipped never prevents, blocks, or corrupts the others. A `skipped` result is non-fatal; an `error` result makes `init-project` report overall failure, but only after every adapter has still run.
+2. **Never touch a tracked file.** Codex/Copilot/Gemini/Antigravity's mechanisms are working-tree files that a team conventionally commits for its own real, shared instructions. Before writing any of them, the adapter checks `profile.IsTracked` (via `git ls-files`); if the path is already tracked, it skips rather than overwriting, appending to, or otherwise mixing AllMyAgents' personal context into a project's shared instructions. Every file it does create is marked as AllMyAgents-generated and immediately added to `.git/info/exclude`.
+
+This is context delivery, not multi-agent orchestration: each adapter is independent and none of them coordinate with each other or with a live execution loop. That remains explicitly outside V0 — see `docs/PRD.md` §10.
 
 ## 8. Context Flow
 

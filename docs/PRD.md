@@ -332,21 +332,26 @@ It is not intended to become another coding agent.
 
 ### V0
 
-Codex is the first execution integration.
+> **Revision note:** this section originally scoped V0 to a single execution
+> integration (Codex), with Claude Code and Gemini as future work. In
+> practice, "which agent(s) receive the Effective Developer Context" turned
+> out to be a V0 requirement in its own right — a single hard-coded
+> integration would not have validated the agent-agnostic core. V0 now
+> delivers the Effective Developer Context to five agents via independent,
+> isolated adapters (see `docs/architecture.md` §7 and `docs/integrations.md`):
+> Claude Code, Codex CLI, GitHub Copilot (VS Code), Gemini CLI, and Google
+> Antigravity. This is context delivery, not execution: the full
+> Understand → Plan → Implement → Test → Verify → Explain → Approval
+> workflow in §11 remains the target design, not something any adapter
+> runs today.
 
-AllMyAgents provides context and workflow intelligence to the executor.
+AllMyAgents provides context and workflow intelligence to whichever executor the developer runs.
 
-The executor must remain replaceable.
+Every executor integration must remain replaceable and isolated: a failure in one must never disable another or the core tool.
 
 ### Future
 
-The architecture may support additional agents such as:
-
-- Claude Code,
-- Gemini-based agents,
-- other compatible coding agents.
-
-Multi-agent orchestration is future scope, not a V0 requirement.
+Multi-agent orchestration (agents coordinating with each other, as opposed to each independently receiving context) is future scope, not a V0 requirement. So is a deeper task-context/execution-verification loop beyond context delivery.
 
 ---
 
@@ -472,7 +477,7 @@ The V0 must demonstrate the core workflow on a real project.
 - project context,
 - task context,
 - relevant context selection,
-- Codex execution integration,
+- agent context-delivery integrations (Claude Code, Codex, Copilot, Gemini CLI, Antigravity),
 - testing,
 - technical verification,
 - human-readable learning/handoff report,

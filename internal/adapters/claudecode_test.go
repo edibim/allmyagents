@@ -1,9 +1,10 @@
-package cli
+package adapters
 
 import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -154,6 +155,63 @@ func TestEnsureClaudeSessionStartHookDetectsAlreadyPresentCommand(t *testing.T) 
 	}
 }
 
+func TestClaudeCodeAdapterConfigureAddsGitExclude(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(projectDir, ".git"), 0o755); err != nil {
+		t.Fatalf("Mkdir returned error: %v", err)
+	}
+
+	result := ClaudeCode{}.Configure(projectDir, "")
+	if result.Status != StatusConfigured {
+		t.Fatalf("Status = %q, want %q (detail: %s)", result.Status, StatusConfigured, result.Detail)
+	}
+	if result.Agent != "claude-code" {
+		t.Fatalf("Agent = %q, want claude-code", result.Agent)
+	}
+
+	exclude := readFile(t, filepath.Join(projectDir, ".git", "info", "exclude"))
+	if !strings.Contains(exclude, "**/.claude/settings.local.json") {
+		t.Fatalf("expected settings.local.json pattern in git exclude, got %q", exclude)
+	}
+	if !strings.Contains(result.Detail, "git-excluded, local only") {
+		t.Fatalf("expected the detail to confirm git exclusion inside a repo, got %q", result.Detail)
+	}
+}
+
+// TestClaudeCodeAdapterConfigureOutsideGitRepoDoesNotClaimGitExclusion
+// proves Finding C: outside a git repository, nothing was actually
+// excluded, so the message must not claim it was.
+func TestClaudeCodeAdapterConfigureOutsideGitRepoDoesNotClaimGitExclusion(t *testing.T) {
+	projectDir := t.TempDir()
+
+	result := ClaudeCode{}.Configure(projectDir, "")
+	if result.Status != StatusConfigured {
+		t.Fatalf("Status = %q, want %q (detail: %s)", result.Status, StatusConfigured, result.Detail)
+	}
+	if strings.Contains(result.Detail, "git-excluded") {
+		t.Fatalf("must not claim git exclusion outside a git repository, got detail %q", result.Detail)
+	}
+	if !strings.Contains(result.Detail, "no git repository") {
+		t.Fatalf("expected an honest 'no git repository' note, got detail %q", result.Detail)
+	}
+}
+
+// TestClaudeCodeAdapterConfigureNotesMissingDeveloperProfile is the
+// (optional, Finding D) improvement: when no Developer Profile exists yet,
+// the message should say so rather than silently implying full context is
+// already flowing to Claude Code.
+func TestClaudeCodeAdapterConfigureNotesMissingDeveloperProfile(t *testing.T) {
+	projectDir := t.TempDir()
+
+	result := ClaudeCode{}.Configure(projectDir, "")
+	if result.Status != StatusConfigured {
+		t.Fatalf("Status = %q, want %q (detail: %s)", result.Status, StatusConfigured, result.Detail)
+	}
+	if !strings.Contains(result.Detail, "no Developer Profile yet") {
+		t.Fatalf("expected a note about the missing Developer Profile, got detail %q", result.Detail)
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -195,7 +253,7 @@ func countSessionStartCommandOccurrences(t *testing.T, path string) int {
 			if !ok {
 				continue
 			}
-			if command, _ := hookMap["command"].(string); command == sessionStartHookCommand {
+			if command, _ := hookMap["command"].(string); command == claudeSessionStartHookCommand {
 				count++
 			}
 		}

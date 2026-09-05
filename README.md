@@ -66,7 +66,7 @@ Everything lives on the developer's machine by default and is not committed to p
 ### Build
 
 ```bash
-git clone https://github.com/n7ptd2xr8c-cell/allmyagents.git
+git clone https://github.com/edibim/allmyagents.git
 cd allmyagents
 go build -o allmyagents ./cmd/allmyagents
 ```

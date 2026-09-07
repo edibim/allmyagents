@@ -2,7 +2,23 @@
 
 A local-first personal engineering intelligence layer for AI-assisted software development.
 
+### Your developer identity shouldn't belong to one AI
+
+AI assistants are getting better at remembering you. But that memory usually stays inside the assistant that created it.
+
+**AllMyAgents takes a different approach: your developer identity belongs to you.**
+
+Define how you work once, keep it locally, and carry that context across the AI coding agents you use — Claude Code, Codex, Copilot, Gemini, and Antigravity.
+
+**AI memory makes the AI remember you. AllMyAgents makes your engineering identity portable.**
+
 AllMyAgents is not a coding agent. It is the layer that sits around one — preserving who you are, how you work, and what your project already knows, so you stop re-explaining it every session.
+
+## What is AllMyAgents?
+
+AI coding agents are good at writing code. They are bad at remembering you.
+
+...
 
 ## What is AllMyAgents?
 
